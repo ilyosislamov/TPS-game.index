@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Route Challenge</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f8ff;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            background-color: #3a86ff;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        h1 {
+            margin: 0;
+        }
+        .game-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .map-container {
+            position: relative;
+            background-color: #e9f5ff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            height: 500px;
+        }
+        .map {
+            width: 100%;
+            height: 100%;
+            background-color: #b3d9ff;
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/World_map_-_low_resolution.svg/1200px-World_map_-_low_resolution.svg.png');
+            background-size: cover;
+            background-position: center;
+        }
+        .city {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: #ff4d4d;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+        .city:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+        }
+        .city.selected {
+            background-color: #00cc44;
+        }
+        .city.start {
+            background-color: #4d94ff;
+            border: 3px solid white;
+        }
+        .city-label {
+            position: absolute;
+            transform: translate(-50%, 15px);
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+            text-shadow: 1px 1px 2px white;
+        }
+        .edge {
+            position: absolute;
+            height: 2px;
+            background-color: #aaa;
+            transform-origin: 0 0;
+            z-index: 5;
+        }
+        .route-edge {
+            position: absolute;
+            height: 3px;
+            background-color: #ff4d4d;
+            transform-origin: 0 0;
+            z-index: 6;
+        }
+        .info-panel {
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .score {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .feedback {
+            text-align: center;
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+        .city-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        .city-item {
+            background-color: #e0e0e0;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+        }
+        button {
+            background-color: #3a86ff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #1a66ff;
+        }
+        .timer {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .region-selector {
+            margin-right: 10px;
+        }
+        .map-container svg {
+            width: 100%;
+            height: 100%;
+        }
+        .country {
+            fill: #b3d9ff;
+            stroke: #6699cc;
+            stroke-width: 1px;
+        }
+        .water {
+            fill: #cce6ff;
+        }
+        .optimal-edge {
+            position: absolute;
+            height: 2px;
+            background-color: rgba(0, 204, 68, 0.3);
+            transform-origin: 0 0;
+            z-index: 4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>The Route Challenge</h1>
+            <p>Visit each city exactly once and return to the starting point with minimal travel cost</p>
+        </header>
+
+        <div class="game-area">
+            <div class="controls">
+                <div>
+                    <select id="region-selector" class="region-selector">
+                        <option value="world">World Tour</option>
+                        <option value="asia">Asia</option>
+                        <option value="europe">Europe</option>
+                        <option value="africa">Africa</option>
+                        <option value="north-america">North America</option>
+                        <option value="south-america">South America</option>
+                        <option value="oceania">Oceania</option>
+                    </select>
+                    <button id="reset-btn">Reset Route</button>
+                    <button id="optimal-btn">Show Optimal</button>
+                </div>
+                <div class="timer">Time: <span id="timer-display">00:00</span></div>
+            </div>
+
+            <div class="map-container">
+                <div class="map" id="map"></div>
+            </div>
+
+            <div class="info-panel">
+                <div class="score">Total Travel Cost: <span id="cost-display">0</span></div>
+                <div class="feedback" id="feedback">Select your starting city to begin!</div>
+                <div>
+                    <h3>Your Route:</h3>
+                    <div class="city-list" id="city-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        const gameState = {
+            cities: [],
+            edges: [],
+            route: [],
+            timer: null,
+            startTime: null,
+            selectedRegion: 'world',
+            optimalRoutes: {},
+            showingOptimal: false
+        };
+
+        // City data by region with real-world coordinates (percentage based)
+        const regionData = {
+            'world': {
+                cities: [
+                    { id: 1, name: 'Tokyo', x: 85, y: 40 },       // Japan
+                    { id: 2, name: 'Sydney', x: 90, y: 70 },       // Australia
+                    { id: 3, name: 'Cape Town', x: 55, y: 75 },    // South Africa
+                    { id: 4, name: 'London', x: 48, y: 30 },       // UK
+                    { id: 5, name: 'New York', x: 25, y: 35 },     // USA
+                    { id: 6, name: 'Rio', x: 35, y: 65 },          // Brazil
+                    { id: 7, name: 'Moscow', x: 60, y: 30 },       // Russia
+                    { id: 8, name: 'Delhi', x: 68, y: 45 }         // India
+                ],
+                optimalRoute: [1, 8, 7, 4, 5, 6, 3, 2, 1]
+            },
+            'asia': {
+                cities: [
+                    { id: 1, name: 'Tokyo', x: 85, y: 40 },        // Japan
+                    { id: 2, name: 'Seoul', x: 80, y: 38 },       // South Korea
+                    { id: 3, name: 'Beijing', x: 75, y: 38 },     // China
+                    { id: 4, name: 'Delhi', x: 68, y: 45 },       // India
+                    { id: 5, name: 'Bangkok', x: 75, y: 50 },     // Thailand
+                    { id: 6, name: 'Jakarta', x: 80, y: 60 },     // Indonesia
+                    { id: 7, name: 'Dubai', x: 60, y: 48 },       // UAE
+                    { id: 8, name: 'Moscow', x: 60, y: 30 }       // Russia (Asian part)
+                ],
+                optimalRoute: [1, 2, 3, 8, 4, 7, 5, 6, 1]
+            },
+            'europe': {
+                cities: [
+                    { id: 1, name: 'London', x: 48, y: 30 },      // UK
+                    { id: 2, name: 'Paris', x: 49, y: 35 },       // France
+                    { id: 3, name: 'Berlin', x: 53, y: 32 },      // Germany
+                    { id: 4, name: 'Rome', x: 52, y: 42 },        // Italy
+                    { id: 5, name: 'Madrid', x: 45, y: 40 },      // Spain
+                    { id: 6, name: 'Moscow', x: 60, y: 30 },      // Russia
+                    { id: 7, name: 'Stockholm', x: 53, y: 25 },   // Sweden
+                    { id: 8, name: 'Istanbul', x: 57, y: 42 }     // Turkey
+                ],
+                optimalRoute: [1, 5, 4, 8, 6, 3, 2, 7, 1]
+            },
+            'africa': {
+                cities: [
+                    { id: 1, name: 'Cairo', x: 58, y: 42 },       // Egypt
+                    { id: 2, name: 'Nairobi', x: 62, y: 55 },     // Kenya
+                    { id: 3, name: 'Lagos', x: 50, y: 55 },       // Nigeria
+                    { id: 4, name: 'Cape Town', x: 55, y: 75 },   // South Africa
+                    { id: 5, name: 'Tunis', x: 50, y: 40 },       // Tunisia
+                    { id: 6, name: 'Khartoum', x: 60, y: 50 },    // Sudan
+                    { id: 7, name: 'Accra', x: 45, y: 52 },       // Ghana
+                    { id: 8, name: 'Luanda', x: 52, y: 65 }       // Angola
+                ],
+                optimalRoute: [1, 5, 3, 7, 8, 4, 2, 6, 1]
+            },
+            'north-america': {
+                cities: [
+                    { id: 1, name: 'New York', x: 25, y: 35 },    // USA
+                    { id: 2, name: 'Los Angeles', x: 15, y: 40 }, // USA
+                    { id: 3, name: 'Toronto', x: 23, y: 32 },     // Canada
+                    { id: 4, name: 'Mexico City', x: 18, y: 48 }, // Mexico
+                    { id: 5, name: 'Chicago', x: 20, y: 33 },      // USA
+                    { id: 6, name: 'Miami', x: 23, y: 45 },       // USA
+                    { id: 7, name: 'Vancouver', x: 12, y: 30 },   // Canada
+                    { id: 8, name: 'Havana', x: 22, y: 48 }       // Cuba
+                ],
+                optimalRoute: [1, 5, 3, 7, 2, 4, 8, 6, 1]
+            },
+            'south-america': {
+                cities: [
+                    { id: 1, name: 'Rio', x: 35, y: 65 },         // Brazil
+                    { id: 2, name: 'Buenos Aires', x: 30, y: 72 },// Argentina
+                    { id: 3, name: 'Lima', x: 25, y: 60 },        // Peru
+                    { id: 4, name: 'Bogota', x: 23, y: 55 },      // Colombia
+                    { id: 5, name: 'Santiago', x: 25, y: 70 },    // Chile
+                    { id: 6, name: 'Caracas', x: 26, y: 52 },     // Venezuela
+                    { id: 7, name: 'Quito', x: 20, y: 58 },       // Ecuador
+                    { id: 8, name: 'La Paz', x: 27, y: 63 }       // Bolivia
+                ],
+                optimalRoute: [1, 8, 3, 7, 4, 6, 2, 5, 1]
+            },
+            'oceania': {
+                cities: [
+                    { id: 1, name: 'Sydney', x: 90, y: 65 },      // Australia
+                    { id: 2, name: 'Melbourne', x: 88, y: 68 },   // Australia
+                    { id: 3, name: 'Auckland', x: 95, y: 70 },    // New Zealand
+                    { id: 4, name: 'Honolulu', x: 10, y: 45 },     // Hawaii (USA)
+                    { id: 5, name: 'Port Moresby', x: 85, y: 58 }, // Papua New Guinea
+                    { id: 6, name: 'Suva', x: 100, y: 60 },       // Fiji
+                    { id: 7, name: 'Apia', x: 102, y: 55 },       // Samoa
+                    { id: 8, name: 'Noumea', x: 92, y: 63 }       // New Caledonia
+                ],
+                optimalRoute: [1, 2, 8, 3, 6, 7, 5, 4, 1]
+            }
+        };
+
+        // Initialize game
+        function initGame() {
+            const region = gameState.selectedRegion;
+            const map = document.getElementById('map');
+            
+            // Clear previous game state
+            map.innerHTML = '';
+            gameState.cities = [];
+            gameState.edges = [];
+            gameState.route = [];
+            
+            // Create map background
+            map.style.backgroundImage = "url('https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/World_map_-_low_resolution.svg/1200px-World_map_-_low_resolution.svg.png')";
+            
+            // Scale coordinates to fit the map container
+            const containerWidth = map.offsetWidth;
+            const containerHeight = map.offsetHeight;
+            
+            // Create cities
+            regionData[region].cities.forEach(city => {
+                // Scale coordinates to fit the map container
+                const scaledCity = {
+                    id: city.id,
+                    name: city.name,
+                    x: (city.x / 100) * containerWidth,
+                    y: (city.y / 100) * containerHeight
+                };
+                createCity(scaledCity);
+            });
+            
+            // Create all possible edges
+            createAllEdges();
+            
+            // Store optimal route for this region
+            gameState.optimalRoutes[region] = regionData[region].optimalRoute;
+            
+            // Reset UI
+            updateRouteDisplay();
+            document.getElementById('cost-display').textContent = '0';
+            document.getElementById('feedback').textContent = 'Select your starting city to begin!';
+            
+            // Reset timer
+            if (gameState.timer) {
+                clearInterval(gameState.timer);
+                gameState.timer = null;
+            }
+            gameState.startTime = null;
+            document.getElementById('timer-display').textContent = '00:00';
+            
+            gameState.showingOptimal = false;
+        }
+
+        // Create a city on the map
+        function createCity(cityData) {
+            const city = document.createElement('div');
+            city.className = 'city';
+            city.id = `city-${cityData.id}`;
+            city.style.left = `${cityData.x}px`;
+            city.style.top = `${cityData.y}px`;
+            
+            const label = document.createElement('div');
+            label.className = 'city-label';
+            label.textContent = cityData.name;
+            label.style.left = `${cityData.x}px`;
+            label.style.top = `${cityData.y}px`;
+            
+            document.getElementById('map').appendChild(city);
+            document.getElementById('map').appendChild(label);
+            
+            // Store city data
+            gameState.cities.push({
+                id: cityData.id,
+                name: cityData.name,
+                x: cityData.x,
+                y: cityData.y,
+                element: city
+            });
+            
+            // Add click event
+            city.addEventListener('click', () => handleCityClick(cityData.id));
+        }
+
+        // Create all possible edges between cities
+        function createAllEdges() {
+            const map = document.getElementById('map');
+            
+            for (let i = 0; i < gameState.cities.length; i++) {
+                for (let j = i + 1; j < gameState.cities.length; j++) {
+                    const city1 = gameState.cities[i];
+                    const city2 = gameState.cities[j];
+                    
+                    // Calculate distance (cost)
+                    const dx = city2.x - city1.x;
+                    const dy = city2.y - city1.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Create edge element
+                    const edge = document.createElement('div');
+                    edge.className = 'edge';
+                    edge.style.left = `${city1.x}px`;
+                    edge.style.top = `${city1.y}px`;
+                    edge.style.width = `${distance}px`;
+                    edge.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+                    
+                    map.appendChild(edge);
+                    
+                    // Store edge data
+                    gameState.edges.push({
+                        city1: city1.id,
+                        city2: city2.id,
+                        distance: Math.round(distance),
+                        element: edge
+                    });
+                }
+            }
+        }
+
+        // Handle city click
+        function handleCityClick(cityId) {
+            // If this is the first city clicked, start the game
+            if (gameState.route.length === 0) {
+                startTimer();
+                gameState.route.push(cityId);
+                updateCityDisplay(cityId, true, true);
+                document.getElementById('feedback').textContent = 'Now visit all other cities exactly once and return to the start!';
+                return;
+            }
+            
+            // If this city is already in the route (except for completing the cycle), ignore
+            if (gameState.route.includes(cityId)) {
+                // Special case: if this is the starting city and all other cities have been visited, complete the route
+                if (cityId === gameState.route[0] && gameState.route.length === gameState.cities.length) {
+                    gameState.route.push(cityId);
+                    drawRouteEdge(gameState.route[gameState.route.length - 2], cityId);
+                    validateRoute();
+                    return;
+                }
+                
+                document.getElementById('feedback').textContent = 'You already visited this city! Choose another one.';
+                return;
+            }
+            
+            // Add city to route
+            gameState.route.push(cityId);
+            updateCityDisplay(cityId, true);
+            
+            // Draw route edge
+            drawRouteEdge(gameState.route[gameState.route.length - 2], cityId);
+            
+            // Update UI
+            updateRouteDisplay();
+            
+            // Check if all cities have been visited
+            if (gameState.route.length === gameState.cities.length) {
+                document.getElementById('feedback').textContent = 'Now return to your starting city to complete the route!';
+            }
+        }
+
+        // Draw a route edge between two cities
+        function drawRouteEdge(cityId1, cityId2) {
+            const city1 = gameState.cities.find(c => c.id === cityId1);
+            const city2 = gameState.cities.find(c => c.id === cityId2);
+            
+            const map = document.getElementById('map');
+            const edge = document.createElement('div');
+            edge.className = 'route-edge';
+            
+            const dx = city2.x - city1.x;
+            const dy = city2.y - city1.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            edge.style.left = `${city1.x}px`;
+            edge.style.top = `${city1.y}px`;
+            edge.style.width = `${distance}px`;
+            edge.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+            
+            map.appendChild(edge);
+        }
+
+        // Update city display
+        function updateCityDisplay(cityId, selected, isStart = false) {
+            const city = gameState.cities.find(c => c.id === cityId);
+            if (!city) return;
+            
+            if (selected) {
+                city.element.classList.add('selected');
+                if (isStart) {
+                    city.element.classList.add('start');
+                }
+            } else {
+                city.element.classList.remove('selected');
+                city.element.classList.remove('start');
+            }
+        }
+
+        // Update route display
+        function updateRouteDisplay() {
+            const cityList = document.getElementById('city-list');
+            cityList.innerHTML = '';
+            
+            if (gameState.route.length === 0) return;
+            
+            gameState.route.forEach(cityId => {
+                const city = gameState.cities.find(c => c.id === cityId);
+                const cityItem = document.createElement('div');
+                cityItem.className = 'city-item';
+                cityItem.textContent = city.name;
+                cityList.appendChild(cityItem);
+            });
+        }
+
+        // Validate completed route
+        function validateRoute() {
+            // Check if route starts and ends at the same city
+            if (gameState.route[0] !== gameState.route[gameState.route.length - 1]) {
+                document.getElementById('feedback').textContent = 'Your route must end at the starting city!';
+                return;
+            }
+            
+            // Check if all cities are visited exactly once (except for the starting city which appears twice)
+            const uniqueCities = new Set(gameState.route);
+            if (uniqueCities.size !== gameState.cities.length) {
+                document.getElementById('feedback').textContent = 'You must visit each city exactly once!';
+                return;
+            }
+            
+            // Calculate total cost
+            const totalCost = calculateRouteCost(gameState.route);
+            document.getElementById('cost-display').textContent = totalCost;
+            
+            // Stop timer
+            if (gameState.timer) {
+                clearInterval(gameState.timer);
+                gameState.timer = null;
+            }
+            
+            // Display feedback based on optimal route
+            const optimalCost = calculateRouteCost(gameState.optimalRoutes[gameState.selectedRegion]);
+            const ratio = totalCost / optimalCost;
+            
+            let feedback = '';
+            if (ratio <= 1.05) {
+                feedback = 'Perfect! Your route is optimal or very close to it!';
+            } else if (ratio <= 1.2) {
+                feedback = 'Great job! Your route is very efficient!';
+            } else if (ratio <= 1.5) {
+                feedback = 'Good effort! Your route is reasonably efficient.';
+            } else {
+                feedback = 'You completed the route, but there are more efficient solutions available.';
+            }
+            
+            document.getElementById('feedback').textContent = feedback;
+        }
+
+        // Calculate the total cost of a route
+        function calculateRouteCost(route) {
+            let totalCost = 0;
+            
+            for (let i = 0; i < route.length - 1; i++) {
+                const cityId1 = route[i];
+                const cityId2 = route[i + 1];
+                
+                // Find edge between these cities
+                const edge = gameState.edges.find(e => 
+                    (e.city1 === cityId1 && e.city2 === cityId2) || 
+                    (e.city1 === cityId2 && e.city2 === cityId1)
+                );
+                
+                if (edge) {
+                    totalCost += edge.distance;
+                }
+            }
+            
+            return totalCost;
+        }
+
+        // Start timer
+        function startTimer() {
+            gameState.startTime = Date.now();
+            gameState.timer = setInterval(updateTimer, 1000);
+        }
+
+        // Update timer display
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const seconds = (elapsed % 60).toString().padStart(2, '0');
+            document.getElementById('timer-display').textContent = `${minutes}:${seconds}`;
+        }
+
+        // Show optimal route
+        function showOptimalRoute() {
+            if (gameState.showingOptimal) return;
+            
+            const optimalRoute = gameState.optimalRoutes[gameState.selectedRegion];
+            const map = document.getElementById('map');
+            
+            for (let i = 0; i < optimalRoute.length - 1; i++) {
+                const cityId1 = optimalRoute[i];
+                const cityId2 = optimalRoute[i + 1];
+                
+                // Find cities
+                const city1 = gameState.cities.find(c => c.id === cityId1);
+                const city2 = gameState.cities.find(c => c.id === cityId2);
+                
+                // Create optimal edge
+                const edge = document.createElement('div');
+                edge.className = 'optimal-edge';
+                
+                const dx = city2.x - city1.x;
+                const dy = city2.y - city1.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                edge.style.left = `${city1.x}px`;
+                edge.style.top = `${city1.y}px`;
+                edge.style.width = `${distance}px`;
+                edge.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+                
+                map.appendChild(edge);
+            }
+            
+            gameState.showingOptimal = true;
+            
+            // Display optimal route cost
+            const optimalCost = calculateRouteCost(optimalRoute);
+            document.getElementById('feedback').textContent = `Optimal route cost: ${optimalCost}`;
+        }
+
+        // Event listeners
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            initGame();
+        });
+        
+        document.getElementById('region-selector').addEventListener('change', (e) => {
+            gameState.selectedRegion = e.target.value;
+            initGame();
+        });
+        
+        document.getElementById('optimal-btn').addEventListener('click', () => {
+            showOptimalRoute();
+        });
+
+        // Initialize game on load
+        window.addEventListener('load', () => {
+            initGame();
+        });
+    </script>
+</body>
+</html>
